@@ -1,66 +1,77 @@
 # Slack Sync for Obsidian
 
-Slackワークスペースの指定チャンネルのメッセージを、Obsidianのマークダウンノートとして一方向同期するプラグインです。[LINE Notes Sync](https://github.com/onikun94/line_to_obsidian)にインスパイアされています。
+A one-way sync plugin that pulls messages from Slack channels into your Obsidian vault as Markdown notes. Inspired by [LINE Notes Sync](https://github.com/onikun94/line_to_obsidian).
 
-## 機能
+No relay server required — the plugin talks directly to the Slack Web API using a Bot Token.
 
-- **メッセージ同期**: Slackチャンネルのメッセージを個別のマークダウンファイルとして保存
-- **複数チャンネル対応**: 複数チャンネルを同時に同期、チャンネルごとにフォルダ分け
-- **添付ファイル対応**: 画像やファイルをダウンロードしてObsidianの添付ファイルとして保存
-  - メッセージに添付されたファイル → そのノートのアタッチメントとして埋め込み
-  - 独立したファイルアップロード → 独立したノートとしてダウンロード
-- **自動同期**: 設定した間隔(1〜360分)での自動同期
-- **日付別グループ化**: 1日分のメッセージを1つのノートにまとめるオプション
-- **スレッド対応**: スレッドの返信を親メッセージのノートに含めるオプション
-- **Slack記法変換**: Slackのmrkdwn記法を標準Markdownに自動変換
-- **ユーザー名解決**: ユーザーIDを表示名に自動変換
-- **テンプレート**: ファイル名やフロントマター、メッセージ形式のカスタマイズ
+## Features
 
-## セットアップ
+- **Per-message notes** — Each Slack message becomes an individual `.md` file with YAML frontmatter
+- **Multi-channel sync** — Sync multiple channels simultaneously, each into its own folder
+- **Attachments & files** — Images and files are downloaded and embedded in notes
+  - Files attached to a message are embedded as attachments of that note (`![[path]]`)
+  - Standalone file uploads are saved as independent notes with the file embedded
+- **Auto sync** — Configurable interval from 1 to 360 minutes, plus sync-on-startup option
+- **Date grouping** — Optionally combine all messages from the same day into a single daily note
+- **Thread replies** — Optionally include thread replies in the parent message note
+- **Slack → Markdown conversion** — Converts Slack's mrkdwn syntax (`*bold*`, `_italic_`, `~strike~`, `<url|text>`, `<@user>`, `<#channel>`) to standard Markdown
+- **User name resolution** — Resolves Slack user IDs to display names, cached for 1 hour
+- **Customizable templates** — File names, frontmatter, and message formatting are all template-driven
 
-### 1. Slack Appの作成
+## Setup
 
-1. [Slack API](https://api.slack.com/apps)にアクセスし、**Create New App** → **From scratch**を選択
-2. アプリ名を入力し、対象のワークスペースを選択
-3. **OAuth & Permissions**で以下のBot Token Scopesを追加:
-   - `channels:history` - パブリックチャンネルのメッセージ読み取り
-   - `channels:read` - チャンネル一覧の取得
-   - `groups:history` - プライベートチャンネルのメッセージ読み取り（必要な場合）
-   - `groups:read` - プライベートチャンネル一覧の取得（必要な場合）
-   - `users:read` - ユーザー情報の取得（表示名解決用）
-   - `files:read` - ファイルのダウンロード
-4. **Install to Workspace**をクリックしてアプリをインストール
-5. **Bot User OAuth Token** (`xoxb-`で始まるトークン) をコピー
+### 1. Create a Slack App
 
-### 2. Botをチャンネルに追加
+1. Go to [Slack API — Your Apps](https://api.slack.com/apps) and click **Create New App** → **From scratch**
+2. Give it a name (e.g. "Obsidian Sync") and select your workspace
+3. Navigate to **OAuth & Permissions** and add the following **Bot Token Scopes**:
 
-同期したい各チャンネルで、Botをメンバーとして招待します:
-- チャンネルで `/invite @YourBotName` を実行
+| Scope | Purpose |
+|-------|---------|
+| `channels:history` | Read messages from public channels |
+| `channels:read` | List public channels |
+| `groups:history` | Read messages from private channels (optional) |
+| `groups:read` | List private channels (optional) |
+| `users:read` | Resolve user IDs to display names |
+| `files:read` | Download attached files and images |
 
-### 3. プラグインの設定
+4. Click **Install to Workspace** and authorize the app
+5. Copy the **Bot User OAuth Token** (starts with `xoxb-`)
 
-1. Obsidianの設定 → Community Plugins → Slack Sync
-2. **Slack Bot Token**にコピーしたトークンを入力
-3. **Test Connection**で接続を確認
-4. **Fetch Channels**でチャンネル一覧を取得
-5. 同期したいチャンネルを追加・有効化
-6. 必要に応じてフォルダパスやテンプレートを設定
+### 2. Invite the Bot to Channels
 
-## 使い方
+In each channel you want to sync, invite the bot:
 
-### 手動同期
+```
+/invite @YourBotName
+```
 
-- サイドバーのリフレッシュアイコンをクリック
-- コマンドパレットから「Sync Slack messages」を実行
-- 設定画面の「Sync Now」ボタンをクリック
+### 3. Configure the Plugin
 
-### 自動同期
+1. Open **Settings → Community Plugins → Slack Sync**
+2. Paste your **Bot Token** into the token field
+3. Click **Test Connection** to verify it works
+4. Click **Fetch Channels** to load available channels from your workspace
+5. Add the channels you want to sync and toggle them on
+6. (Optional) Set custom folder names, file templates, and other preferences
 
-設定画面で**Auto Sync**を有効にし、同期間隔を設定してください。
+## Usage
 
-## 生成されるノートの例
+### Manual Sync
 
-### 個別ノート (デフォルト)
+- Click the **refresh icon** in the left ribbon
+- Open the **Command Palette** (`Ctrl/Cmd + P`) and run `Sync Slack messages`
+- Click **Sync Now** in the plugin settings
+
+### Auto Sync
+
+Enable **Auto Sync** in settings and set the interval (1–360 minutes). You can also enable **Sync on Startup** to sync automatically when Obsidian opens.
+
+## Output Examples
+
+### Individual Notes (default)
+
+Each message produces a separate file:
 
 ```markdown
 ---
@@ -71,12 +82,14 @@ date: 2025-09-12
 timestamp: 1694505278.000000
 ---
 
-プロジェクトの進捗について共有します。
+Here's the progress update for the project.
 
 ![[Slack/attachments/general/screenshot.png]]
 ```
 
-### 日付別グループノート
+### Date-Grouped Notes
+
+When **Group Messages by Date** is enabled, all messages from the same channel and day are combined:
 
 ```markdown
 ---
@@ -86,13 +99,39 @@ date: 2025-09-12
 ---
 
 **John Doe** (09:54:38):
-おはようございます！
+Good morning!
 
 **Jane Smith** (10:15:22):
-おはようございます！今日の予定を確認しましょう。
+Good morning! Let's review today's agenda.
 ```
 
-## フォルダ構造
+### Thread Replies
+
+When **Sync Thread Replies** is enabled, replies are appended to the parent note:
+
+```markdown
+---
+source: Slack
+channel: general
+author: John Doe
+date: 2025-09-12
+timestamp: 1694505278.000000
+---
+
+What do you think about the new design?
+
+---
+
+### Thread Replies
+
+**Jane Smith** (10:20:15):
+Looks great! I have a few suggestions though.
+
+**Bob Wilson** (10:25:33):
+Agreed, the layout is much better now.
+```
+
+## Folder Structure
 
 ```
 Slack/
@@ -103,45 +142,110 @@ Slack/
 │   └── 2025-09-12-project-alpha-1694510000_000000.md
 └── attachments/
     ├── general/
-    │   └── screenshot.png
+    │   ├── screenshot.png
+    │   └── report.xlsx
     └── project-alpha/
         └── design-doc.pdf
 ```
 
-## テンプレート変数
+Each channel gets its own subfolder. Attachments are organized by channel under a separate `attachments/` directory. You can customize all folder paths in settings, and optionally enable date-based subfolders (`YYYY/MM/DD`).
 
-| 変数 | 説明 | 例 |
-|------|------|-----|
-| `{date}` | 日付 (YYYY-MM-DD) | 2025-09-12 |
-| `{datecompact}` | 日付 (YYYYMMDD) | 20250912 |
-| `{time}` | 時刻 (HH:MM:SS) | 09:54:38 |
-| `{timecompact}` | 時刻 (HHMMSS) | 095438 |
-| `{datetime}` | 日時 (YYYYMMDDHHMMSS) | 20250912095438 |
-| `{ts}` | Slackタイムスタンプ | 1694505278_000000 |
-| `{channelName}` | チャンネル名 | general |
-| `{userName}` | ユーザー表示名 | John_Doe |
+## Template Variables
 
-## Slack APIレート制限への配慮
+Templates are used for file names, frontmatter, and grouped message formatting.
 
-プラグインはSlack APIのレート制限を考慮して設計されています:
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{date}` | Date (YYYY-MM-DD) | `2025-09-12` |
+| `{datecompact}` | Date (YYYYMMDD) | `20250912` |
+| `{time}` | Time (HH:MM:SS) | `09:54:38` |
+| `{timecompact}` | Time (HHMMSS) | `095438` |
+| `{datetime}` | DateTime (YYYYMMDDHHMMSS) | `20250912095438` |
+| `{ts}` | Slack timestamp | `1694505278_000000` |
+| `{channelName}` | Channel name | `general` |
+| `{userName}` | User display name | `John_Doe` |
+| `{text}` | Message text (grouped mode only) | — |
 
-- メッセージ取得のページネーション間に1100msの遅延
-- ユーザー情報取得間に200msの遅延
-- ユーザー情報を1時間キャッシュして不要なAPI呼び出しを削減
+### Default Templates
 
-## 開発
+| Setting | Default Value |
+|---------|---------------|
+| File Name | `{date}-{channelName}-{ts}` |
+| Grouped File Name | `{date}-{channelName}` |
+| Grouped Frontmatter | `source: Slack`<br>`channel: {channelName}`<br>`date: {date}` |
+| Grouped Message | `**{userName}** ({time}):\n{text}` |
+
+## Settings Reference
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Slack Bot Token** | Bot User OAuth Token (`xoxb-...`) | — |
+| **Auto Sync** | Enable periodic automatic sync | Off |
+| **Sync Interval** | Minutes between auto-syncs (1–360) | 30 |
+| **Sync on Startup** | Sync when Obsidian launches | Off |
+| **Sync Thread Replies** | Include thread replies in parent note | Off |
+| **Note Folder Path** | Root folder for notes | `Slack` |
+| **Attachment Folder Path** | Root folder for downloaded files | `Slack/attachments` |
+| **Organize by Date** | Create `YYYY/MM/DD` subfolders | Off |
+| **File Name Template** | Template for note file names | `{date}-{channelName}-{ts}` |
+| **Group Messages by Date** | Merge daily messages into one note | Off |
+
+## Slack API Rate Limits
+
+The plugin is designed to stay within Slack's API rate limits:
+
+- **1,100 ms delay** between message history pagination requests
+- **200 ms delay** between user info lookups
+- **1-hour cache** for user info to minimize redundant API calls
+- Configurable sync interval (minimum 1 minute) to prevent excessive polling
+
+## Architecture
+
+```
+┌──────────────┐       Slack Web API        ┌─────────────┐
+│              │  ──── conversations.history ──→             │
+│   Obsidian   │  ──── conversations.replies ──→   Slack    │
+│   Plugin     │  ──── users.info ───────────→   Servers   │
+│              │  ──── file download ────────→             │
+└──────┬───────┘                             └─────────────┘
+       │
+       ▼
+  ┌────────────┐
+  │  Vault     │
+  │  ├── notes │
+  │  └── files │
+  └────────────┘
+```
+
+The plugin polls Slack's Web API directly — no intermediate server, no webhook, no database. Sync state (last-synced timestamp per channel) is stored locally in the plugin's `data.json`.
+
+## Development
 
 ```bash
-# 依存関係のインストール
+# Install dependencies
 npm install
 
-# 開発ビルド (ウォッチモード)
+# Development build (watch mode)
 npm run dev
 
-# プロダクションビルド
+# Production build
 npm run build
 ```
 
-## ライセンス
+### Project Structure
 
-MIT
+```
+src/
+├── main.ts            # Plugin entry point and settings UI
+├── slackApi.ts        # Slack Web API client
+├── syncEngine.ts      # Core sync orchestration
+├── fileManager.ts     # Note creation and attachment handling
+├── slackMarkdown.ts   # Slack mrkdwn → Markdown converter
+├── dateUtils.ts       # Date formatting and template engine
+├── types.ts           # TypeScript interfaces
+└── constants.ts       # Default settings and API endpoints
+```
+
+## License
+
+[MIT](LICENSE)
