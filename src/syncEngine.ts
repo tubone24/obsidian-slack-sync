@@ -247,6 +247,7 @@ export class SyncEngine {
 					userName,
 					fileDesc,
 					attachmentEmbeds,
+					undefined,
 					channel.folderName
 				);
 			} else {
@@ -296,6 +297,7 @@ export class SyncEngine {
 				userName,
 				markdownText,
 				attachmentEmbeds,
+				threadReplies,
 				channel.folderName
 			);
 			if (created) result.messagesCreated++;
