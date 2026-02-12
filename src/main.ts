@@ -417,11 +417,11 @@ class SlackSyncSettingTab extends PluginSettingTab {
 			)
 			.addText((text) =>
 				text
-					.setPlaceholder('{date}-{channelName}-{ts}')
+					.setPlaceholder('{date}-{ts}')
 					.setValue(this.plugin.settings.fileNameTemplate)
 					.onChange(async (value) => {
 						this.plugin.settings.fileNameTemplate =
-							value.trim() || '{date}-{channelName}-{ts}';
+							value.trim() || '{date}-{ts}';
 						await this.plugin.saveSettings();
 					})
 			);
@@ -450,13 +450,13 @@ class SlackSyncSettingTab extends PluginSettingTab {
 				.setDesc('Template for grouped note file names')
 				.addText((text) =>
 					text
-						.setPlaceholder('{date}-{channelName}')
+						.setPlaceholder('{date}')
 						.setValue(
 							this.plugin.settings.groupedFileNameTemplate
 						)
 						.onChange(async (value) => {
 							this.plugin.settings.groupedFileNameTemplate =
-								value.trim() || '{date}-{channelName}';
+								value.trim() || '{date}';
 							await this.plugin.saveSettings();
 						})
 				);
@@ -464,12 +464,12 @@ class SlackSyncSettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName('Grouped Frontmatter Template')
 				.setDesc(
-					'YAML frontmatter template for grouped notes. Variables: {date}, {channelName}'
+					'YAML frontmatter template for grouped notes. Variables: {date}, {channelName}, {userName}'
 				)
 				.addTextArea((text) =>
 					text
 						.setPlaceholder(
-							'source: Slack\nchannel: {channelName}\ndate: {date}'
+							'source: Slack\nchannel: {channelName}\ndate: {date}\nauthor: {userName}'
 						)
 						.setValue(
 							this.plugin.settings.groupedFrontmatterTemplate
@@ -489,14 +489,14 @@ class SlackSyncSettingTab extends PluginSettingTab {
 				.addText((text) =>
 					text
 						.setPlaceholder(
-							'**{userName}** ({time}):\n{text}'
+							'### {time}\n\n{text}'
 						)
 						.setValue(
 							this.plugin.settings.groupedMessageTemplate
 						)
 						.onChange(async (value) => {
 							this.plugin.settings.groupedMessageTemplate =
-								value || '**{userName}** ({time}):\n{text}';
+								value || '### {time}\n\n{text}';
 							await this.plugin.saveSettings();
 						})
 				);

@@ -116,6 +116,7 @@ export class FileManager {
 			`channel: ${channelName}`,
 			`author: ${userName}`,
 			`date: ${formatDate(date)}`,
+			`time: "${formatTime(date)}"`,
 			`timestamp: ${message.ts}`,
 			'---',
 			'',
@@ -143,6 +144,63 @@ export class FileManager {
 	}
 
 	/**
+	 * Parse YAML frontmatter and body from a note's content.
+	 */
+	private parseFrontmatter(content: string): { frontmatter: string; body: string } | null {
+		const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+		if (!match) return null;
+		return { frontmatter: match[1], body: match[2] };
+	}
+
+	/**
+	 * Update the authors field in frontmatter YAML, adding a new author if not already present.
+	 * Converts single `author:` to `authors:` list when multiple authors exist.
+	 */
+	private updateFrontmatterAuthors(frontmatterContent: string, newAuthor: string): string {
+		const lines = frontmatterContent.split('\n');
+		const existingAuthors: string[] = [];
+		let authorLineIndex = -1;
+		let authorsStartIndex = -1;
+		let authorsEndIndex = -1;
+
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			if (line.startsWith('author: ')) {
+				authorLineIndex = i;
+				existingAuthors.push(line.substring('author: '.length).trim());
+			} else if (line.startsWith('authors:')) {
+				authorsStartIndex = i;
+				let j = i + 1;
+				while (j < lines.length && /^\s+-\s+/.test(lines[j])) {
+					existingAuthors.push(lines[j].replace(/^\s+-\s+/, '').trim());
+					j++;
+				}
+				authorsEndIndex = j - 1;
+			}
+		}
+
+		if (existingAuthors.includes(newAuthor)) {
+			return frontmatterContent;
+		}
+
+		existingAuthors.push(newAuthor);
+
+		const authorsYaml = existingAuthors.length === 1
+			? `author: ${existingAuthors[0]}`
+			: `authors:\n${existingAuthors.map(a => `  - ${a}`).join('\n')}`;
+
+		if (authorLineIndex >= 0) {
+			lines[authorLineIndex] = authorsYaml;
+		} else if (authorsStartIndex >= 0) {
+			lines.splice(authorsStartIndex, authorsEndIndex - authorsStartIndex + 1, authorsYaml);
+		} else {
+			lines.push(authorsYaml);
+		}
+
+		return lines.join('\n');
+	}
+
+	/**
 	 * Append a message to a grouped daily note.
 	 */
 	async appendToGroupedNote(
@@ -164,7 +222,7 @@ export class FileManager {
 
 		await this.ensureFolder(folderPath);
 
-		// Build the message entry
+		// Build the message entry with a hidden timestamp marker for deduplication
 		const messageVars = {
 			...vars,
 			text: markdownText,
@@ -176,6 +234,8 @@ export class FileManager {
 			messageEntry += '\n' + attachmentEmbeds.join('\n');
 		}
 
+		messageEntry = `<!-- ts:${message.ts} -->\n${messageEntry}`;
+
 		const existingFile = this.vault.getAbstractFileByPath(filePath);
 		if (existingFile) {
 			// Append to existing file
@@ -186,7 +246,15 @@ export class FileManager {
 				return null;
 			}
 
-			await this.vault.modify(existingFile as any, existingContent + '\n\n' + messageEntry);
+			// Update frontmatter to include new author if different
+			const parsed = this.parseFrontmatter(existingContent);
+			if (parsed) {
+				const updatedFrontmatter = this.updateFrontmatterAuthors(parsed.frontmatter, userName);
+				const newContent = `---\n${updatedFrontmatter}\n---\n${parsed.body}\n\n${messageEntry}`;
+				await this.vault.modify(existingFile as any, newContent);
+			} else {
+				await this.vault.modify(existingFile as any, existingContent + '\n\n' + messageEntry);
+			}
 		} else {
 			// Create new grouped file with frontmatter
 			const frontmatterTemplate = this.settings.groupedFrontmatterTemplate;
