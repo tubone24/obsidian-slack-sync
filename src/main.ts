@@ -64,7 +64,12 @@ export default class SlackSyncPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data = await this.loadData();
+		if (data) {
+			// Strip legacy plaintext token so it never leaks back to data.json
+			delete data.slackBotToken;
+		}
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 	}
 
 	async saveSettings(): Promise<void> {
@@ -124,7 +129,12 @@ export default class SlackSyncPlugin extends Plugin {
 			new Notice('Slack Sync: Please configure your Slack Bot Token in settings');
 			return;
 		}
-		await this.syncEngine.syncAll(() => this.saveSettings());
+		try {
+			await this.syncEngine.syncAll(() => this.saveSettings());
+		} catch (e) {
+			console.error('Slack Sync error:', e);
+			new Notice(`Slack Sync error: ${(e as Error).message}`);
+		}
 	}
 }
 
