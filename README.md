@@ -22,6 +22,19 @@ No relay server required — the plugin talks directly to the Slack Web API usin
 
 ### 1. Create a Slack App
 
+#### Quick setup (recommended)
+
+1. Go to [Slack API — Your Apps](https://api.slack.com/apps) and click **Create New App** → **From an app manifest**
+2. Select your workspace
+3. Switch to the **JSON** tab and paste the contents of [`slack-app-manifest.json`](slack-app-manifest.json) included in this repository
+4. Click **Create** and then **Install to Workspace**
+5. Copy the **Bot User OAuth Token** (starts with `xoxb-`) from **OAuth & Permissions**
+
+#### Manual setup
+
+<details>
+<summary>Click to expand manual setup instructions</summary>
+
 1. Go to [Slack API — Your Apps](https://api.slack.com/apps) and click **Create New App** → **From scratch**
 2. Give it a name (e.g. "Obsidian Sync") and select your workspace
 3. Navigate to **OAuth & Permissions** and add the following **Bot Token Scopes**:
@@ -37,6 +50,8 @@ No relay server required — the plugin talks directly to the Slack Web API usin
 
 4. Click **Install to Workspace** and authorize the app
 5. Copy the **Bot User OAuth Token** (starts with `xoxb-`)
+
+</details>
 
 ### 2. Invite the Bot to Channels
 
