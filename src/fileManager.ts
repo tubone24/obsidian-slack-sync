@@ -132,7 +132,8 @@ export class FileManager {
 
 		// Add thread replies if enabled
 		if (threadReplies && threadReplies.length > 0) {
-			content += '\n\n---\n\n### Thread Replies\n\n';
+			const threadTitle = markdownText.split('\n')[0].trim() || 'Thread';
+			content += `\n\n---\n\n### ${threadTitle}\n\n`;
 			for (const reply of threadReplies) {
 				const replyDate = slackTsToDate(reply.ts);
 				content += `**${reply.userName}** (${formatTime(replyDate)}):\n${reply.text}\n\n`;
@@ -237,7 +238,8 @@ export class FileManager {
 
 		// Add thread replies as blockquotes below the parent message
 		if (threadReplies && threadReplies.length > 0) {
-			messageEntry += '\n\n#### Thread\n\n';
+			const threadTitle = markdownText.split('\n')[0].trim() || 'Thread';
+			messageEntry += `\n\n#### ${threadTitle}\n\n`;
 			for (const reply of threadReplies) {
 				const replyDate = slackTsToDate(reply.ts);
 				messageEntry += `> **${reply.userName}** (${formatTime(replyDate)}):\n> ${reply.text.split('\n').join('\n> ')}\n\n`;
