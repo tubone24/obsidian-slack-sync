@@ -61,9 +61,28 @@ In each channel you want to sync, invite the bot:
 /invite @YourBotName
 ```
 
-### 3. Configure the Plugin
+### 3. Install the Plugin
 
-1. Open **Settings → Community Plugins → Slack Sync**
+This plugin is not yet available in the Obsidian Community Plugins directory. Install it manually:
+
+1. Build the plugin (or download a release):
+
+```bash
+npm install && npm run build
+```
+
+2. Copy the following files into your vault's plugin folder:
+
+```bash
+mkdir -p /path/to/vault/.obsidian/plugins/slack-sync
+cp main.js manifest.json styles.css /path/to/vault/.obsidian/plugins/slack-sync/
+```
+
+3. Open Obsidian → **Settings → Community Plugins** → enable **Slack Sync**
+
+### 4. Configure the Plugin
+
+1. Open **Settings → Community Plugins → Slack Sync** (click the gear icon)
 2. Paste your **Bot Token** into the token field
 3. Click **Test Connection** to verify it works
 4. Click **Fetch Channels** to load available channels from your workspace
@@ -260,6 +279,62 @@ src/
 ├── types.ts           # TypeScript interfaces
 └── constants.ts       # Default settings and API endpoints
 ```
+
+### Releasing a New Version
+
+1. Bump the version:
+
+```bash
+npm version patch   # or minor / major
+```
+
+This automatically updates `manifest.json` and `versions.json` via the `version-bump.mjs` script.
+
+2. Push the tag:
+
+```bash
+git push && git push --tags
+```
+
+3. GitHub Actions builds the plugin and creates a **draft release** with `main.js`, `manifest.json`, and `styles.css` attached.
+4. Go to **GitHub → Releases**, review the draft, and click **Publish**.
+
+### Publishing to Obsidian Community Plugins
+
+To make this plugin available in Obsidian's **Community Plugins** browser:
+
+1. **Ensure your repo has all required files:**
+   - `manifest.json` — plugin metadata (id, name, version, etc.)
+   - `versions.json` — maps plugin versions to minimum Obsidian versions
+   - `README.md` — plugin description and usage instructions
+   - `LICENSE` — open-source license
+
+2. **Create a GitHub release** (see [Releasing a New Version](#releasing-a-new-version) above). The release tag must exactly match the `version` in `manifest.json` (e.g. `1.0.0`, not `v1.0.0`). The release must not be a draft or pre-release.
+
+3. **Fork [`obsidianmd/obsidian-releases`](https://github.com/obsidianmd/obsidian-releases)** and add an entry to the end of `community-plugins.json`:
+
+```json
+{
+    "id": "slack-sync",
+    "name": "Slack Sync",
+    "author": "tubone24",
+    "description": "One-way sync messages from Slack channels to Obsidian notes. Each message becomes an individual markdown file with support for attachments.",
+    "repo": "tubone24/obsidian-slack-sync"
+}
+```
+
+4. **Open a Pull Request** to `obsidianmd/obsidian-releases`. Select the **Community Plugin** PR template and complete the checklist.
+
+5. **Wait for review.** An automated bot validates the submission (id uniqueness, naming rules, release assets, etc.). The Obsidian team will review and merge.
+
+> **Naming rules enforced by the validator:**
+> - Plugin `id` must not contain "obsidian" or end with "plugin"
+> - Plugin `name` must not contain "Obsidian" or end with "Plugin"
+> - `description` must not start with "This plugin" and must end with punctuation (`.`, `!`, `?`)
+
+After the initial PR is merged, future updates are delivered automatically through GitHub releases — no additional PRs needed.
+
+For full details, see the [Obsidian Developer Docs — Submit your plugin](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin).
 
 ## License
 
