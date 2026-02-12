@@ -7,7 +7,7 @@ import {
 	setIcon,
 } from 'obsidian';
 import { SlackSyncSettings, ChannelConfig, SlackChannel } from './types';
-import { DEFAULT_SETTINGS } from './constants';
+import { DEFAULT_SETTINGS, SLACK_BOT_TOKEN_SECRET_ID } from './constants';
 import { SlackApiClient } from './slackApi';
 import { FileManager } from './fileManager';
 import { SyncEngine } from './syncEngine';
@@ -21,8 +21,10 @@ export default class SlackSyncPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
+		await this.migrateTokenToSecretStorage();
 
-		this.api = new SlackApiClient(this.settings.slackBotToken);
+		const token = this.getToken();
+		this.api = new SlackApiClient(token);
 		this.fileManager = new FileManager(this.app.vault, this.settings);
 		this.syncEngine = new SyncEngine(this.api, this.fileManager, this.settings);
 
@@ -51,7 +53,7 @@ export default class SlackSyncPlugin extends Plugin {
 		this.setupAutoSync();
 
 		// Sync on startup if enabled
-		if (this.settings.syncOnStartup && this.settings.slackBotToken) {
+		if (this.settings.syncOnStartup && token) {
 			// Delay startup sync slightly to let Obsidian finish loading
 			setTimeout(() => this.runSync(), 5000);
 		}
@@ -67,14 +69,41 @@ export default class SlackSyncPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
-		this.api.setToken(this.settings.slackBotToken);
+		this.api.setToken(this.getToken());
 		this.syncEngine.updateSettings(this.settings);
 		this.setupAutoSync();
 	}
 
+	getToken(): string {
+		return this.app.secretStorage.getSecret(SLACK_BOT_TOKEN_SECRET_ID) ?? '';
+	}
+
+	setToken(token: string): void {
+		this.app.secretStorage.setSecret(SLACK_BOT_TOKEN_SECRET_ID, token);
+		this.api.setToken(token);
+	}
+
+	/**
+	 * Migrate token from data.json (pre-1.11.4) to SecretStorage.
+	 * Removes the plaintext token from data.json after migration.
+	 */
+	private async migrateTokenToSecretStorage(): Promise<void> {
+		const data = await this.loadData();
+		if (data && data.slackBotToken) {
+			const existing = this.app.secretStorage.getSecret(SLACK_BOT_TOKEN_SECRET_ID);
+			if (!existing) {
+				this.app.secretStorage.setSecret(SLACK_BOT_TOKEN_SECRET_ID, data.slackBotToken);
+			}
+			// Remove plaintext token from data.json
+			delete data.slackBotToken;
+			await this.saveData(data);
+		}
+	}
+
 	private setupAutoSync(): void {
 		this.clearAutoSync();
-		if (this.settings.autoSync && this.settings.slackBotToken) {
+		const token = this.getToken();
+		if (this.settings.autoSync && token) {
 			const intervalMs = Math.max(1, this.settings.syncInterval) * 60 * 1000;
 			this.autoSyncInterval = window.setInterval(() => {
 				this.runSync();
@@ -91,7 +120,7 @@ export default class SlackSyncPlugin extends Plugin {
 	}
 
 	private async runSync(): Promise<void> {
-		if (!this.settings.slackBotToken) {
+		if (!this.getToken()) {
 			new Notice('Slack Sync: Please configure your Slack Bot Token in settings');
 			return;
 		}
@@ -117,23 +146,25 @@ class SlackSyncSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Slack Bot Token')
-			.setDesc('Your Slack app Bot User OAuth Token (xoxb-...)')
-			.addText((text) =>
+			.setDesc('Your Slack app Bot User OAuth Token (xoxb-...). Stored securely outside your vault.')
+			.addText((text) => {
+				text.inputEl.type = 'password';
+				text.inputEl.autocomplete = 'off';
 				text
 					.setPlaceholder('xoxb-...')
-					.setValue(this.plugin.settings.slackBotToken)
+					.setValue(this.plugin.getToken())
 					.onChange(async (value) => {
-						this.plugin.settings.slackBotToken = value.trim();
+						this.plugin.setToken(value.trim());
 						await this.plugin.saveSettings();
-					})
-			);
+					});
+			});
 
 		new Setting(containerEl)
 			.setName('Test Connection')
 			.setDesc('Verify that the Bot Token is valid')
 			.addButton((button) =>
 				button.setButtonText('Test').onClick(async () => {
-					if (!this.plugin.settings.slackBotToken) {
+					if (!this.plugin.getToken()) {
 						new Notice('Please enter a Bot Token first');
 						return;
 					}
@@ -165,7 +196,7 @@ class SlackSyncSettingTab extends PluginSettingTab {
 			.setDesc('Load available channels from your Slack workspace')
 			.addButton((button) =>
 				button.setButtonText('Fetch Channels').onClick(async () => {
-					if (!this.plugin.settings.slackBotToken) {
+					if (!this.plugin.getToken()) {
 						new Notice('Please enter a Bot Token first');
 						return;
 					}
@@ -472,7 +503,7 @@ class SlackSyncSettingTab extends PluginSettingTab {
 					.setButtonText('Sync Now')
 					.setCta()
 					.onClick(async () => {
-						if (!this.plugin.settings.slackBotToken) {
+						if (!this.plugin.getToken()) {
 							new Notice(
 								'Please configure a Bot Token first'
 							);

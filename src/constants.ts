@@ -11,8 +11,9 @@ export const SLACK_ENDPOINTS = {
 	USERS_INFO: `${SLACK_API_BASE}/users.info`,
 };
 
+export const SLACK_BOT_TOKEN_SECRET_ID = 'slack-bot-token';
+
 export const DEFAULT_SETTINGS: SlackSyncSettings = {
-	slackBotToken: '',
 	channels: [],
 	noteFolderPath: 'Slack',
 	attachmentFolderPath: 'Slack/attachments',

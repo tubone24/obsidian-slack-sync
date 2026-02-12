@@ -6,7 +6,6 @@ export interface ChannelConfig {
 }
 
 export interface SlackSyncSettings {
-	slackBotToken: string;
 	channels: ChannelConfig[];
 	noteFolderPath: string;
 	attachmentFolderPath: string;
