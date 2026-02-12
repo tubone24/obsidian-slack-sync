@@ -26,7 +26,41 @@ No relay server required — the plugin talks directly to the Slack Web API usin
 
 1. Go to [Slack API — Your Apps](https://api.slack.com/apps) and click **Create New App** → **From an app manifest**
 2. Select your workspace
-3. Switch to the **JSON** tab and paste the contents of [`slack-app-manifest.json`](slack-app-manifest.json) included in this repository
+3. Switch to the **JSON** tab and paste the following manifest:
+
+```json
+{
+  "display_information": {
+    "name": "Obsidian Slack Sync",
+    "description": "Syncs Slack messages to Obsidian as Markdown notes",
+    "background_color": "#7C3AED"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Obsidian Sync",
+      "always_online": false
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "channels:history",
+        "channels:read",
+        "groups:history",
+        "groups:read",
+        "users:read",
+        "files:read"
+      ]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
+```
+
 4. Click **Create** and then **Install to Workspace**
 5. Copy the **Bot User OAuth Token** (starts with `xoxb-`) from **OAuth & Permissions**
 
