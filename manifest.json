@@ -1,0 +1,9 @@
+{
+	"id": "slack-sync",
+	"name": "Slack Sync",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "One-way sync messages from Slack channels to Obsidian notes. Each message becomes an individual markdown file with support for attachments.",
+	"author": "tubone24",
+	"isDesktopOnly": true
+}
