@@ -525,6 +525,9 @@ class SlackSyncSettingTab extends PluginSettingTab {
 							await this.plugin.syncEngine.syncAll(() =>
 								this.plugin.saveSettings()
 							);
+						} catch (e) {
+							console.error('Slack Sync error:', e);
+							new Notice(`Slack Sync error: ${(e as Error).message}`);
 						} finally {
 							button.setDisabled(false);
 							button.setButtonText('Sync Now');

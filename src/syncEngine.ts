@@ -83,9 +83,13 @@ export class SyncEngine {
 
 			let resultMessage = `Slack Sync: ${totalMessages} note(s), ${totalFiles} file(s) synced`;
 			if (totalErrors > 0) {
+				const allErrors = results.flatMap((r) => r.errors);
 				resultMessage += ` (${totalErrors} error(s))`;
+				console.error('Slack Sync errors:', allErrors);
+				new Notice(resultMessage + '\n' + allErrors.join('\n'), 10000);
+			} else {
+				new Notice(resultMessage);
 			}
-			new Notice(resultMessage);
 		} finally {
 			this.isSyncing = false;
 		}
