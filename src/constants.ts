@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS: SlackSyncSettings = {
 	groupedFrontmatterTemplate: 'source: Slack\nchannel: {channelName}\ndate: {date}\nauthor: {userName}',
 	groupedMessageTemplate: '### {time}\n\n{text}',
 	includeUserName: true,
-	syncThreadReplies: false,
+	syncThreadReplies: true,
 	lastSyncTimestamps: {},
 };
 

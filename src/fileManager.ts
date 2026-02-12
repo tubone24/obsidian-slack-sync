@@ -209,6 +209,7 @@ export class FileManager {
 		userName: string,
 		markdownText: string,
 		attachmentEmbeds: string[],
+		threadReplies?: { userName: string; text: string; ts: string }[],
 		channelFolderName?: string
 	): Promise<string | null> {
 		const date = slackTsToDate(message.ts);
@@ -232,6 +233,15 @@ export class FileManager {
 
 		if (attachmentEmbeds.length > 0) {
 			messageEntry += '\n' + attachmentEmbeds.join('\n');
+		}
+
+		// Add thread replies as blockquotes below the parent message
+		if (threadReplies && threadReplies.length > 0) {
+			messageEntry += '\n\n#### Thread\n\n';
+			for (const reply of threadReplies) {
+				const replyDate = slackTsToDate(reply.ts);
+				messageEntry += `> **${reply.userName}** (${formatTime(replyDate)}):\n> ${reply.text.split('\n').join('\n> ')}\n\n`;
+			}
 		}
 
 		messageEntry = `<!-- ts:${message.ts} -->\n${messageEntry}`;
