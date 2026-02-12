@@ -95,9 +95,28 @@ In each channel you want to sync, invite the bot:
 /invite @YourBotName
 ```
 
-### 3. Configure the Plugin
+### 3. Install the Plugin
 
-1. Open **Settings → Community Plugins → Slack Sync**
+This plugin is not yet available in the Obsidian Community Plugins directory. Install it manually:
+
+1. Build the plugin (or download a release):
+
+```bash
+npm install && npm run build
+```
+
+2. Copy the following files into your vault's plugin folder:
+
+```bash
+mkdir -p /path/to/vault/.obsidian/plugins/slack-sync
+cp main.js manifest.json styles.css /path/to/vault/.obsidian/plugins/slack-sync/
+```
+
+3. Open Obsidian → **Settings → Community Plugins** → enable **Slack Sync**
+
+### 4. Configure the Plugin
+
+1. Open **Settings → Community Plugins → Slack Sync** (click the gear icon)
 2. Paste your **Bot Token** into the token field
 3. Click **Test Connection** to verify it works
 4. Click **Fetch Channels** to load available channels from your workspace
