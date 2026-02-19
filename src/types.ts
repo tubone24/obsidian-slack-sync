@@ -104,6 +104,7 @@ export interface SyncResult {
 	channelId: string;
 	channelName: string;
 	messagesCreated: number;
+	threadsUpdated: number;
 	filesDownloaded: number;
 	errors: string[];
 }

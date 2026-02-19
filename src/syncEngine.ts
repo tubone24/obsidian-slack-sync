@@ -67,6 +67,7 @@ export class SyncEngine {
 						channelId: channel.id,
 						channelName: channel.name,
 						messagesCreated: 0,
+						threadsUpdated: 0,
 						filesDownloaded: 0,
 						errors: [error.message],
 					});
@@ -78,10 +79,14 @@ export class SyncEngine {
 
 			// Report results
 			const totalMessages = results.reduce((sum, r) => sum + r.messagesCreated, 0);
+			const totalThreads = results.reduce((sum, r) => sum + r.threadsUpdated, 0);
 			const totalFiles = results.reduce((sum, r) => sum + r.filesDownloaded, 0);
 			const totalErrors = results.reduce((sum, r) => sum + r.errors.length, 0);
 
 			let resultMessage = `Slack Sync: ${totalMessages} note(s), ${totalFiles} file(s) synced`;
+			if (totalThreads > 0) {
+				resultMessage += `, ${totalThreads} thread(s) updated`;
+			}
 			if (totalErrors > 0) {
 				const allErrors = results.flatMap((r) => r.errors);
 				resultMessage += ` (${totalErrors} error(s))`;
@@ -105,6 +110,7 @@ export class SyncEngine {
 			channelId: channel.id,
 			channelName: channel.name,
 			messagesCreated: 0,
+			threadsUpdated: 0,
 			filesDownloaded: 0,
 			errors: [],
 		};
@@ -157,7 +163,29 @@ export class SyncEngine {
 
 		const userResolver = createUserResolver(this.userMap);
 
-		// Process each message
+		// First pass: identify which messages are new parents vs thread replies
+		// to detect previously-synced messages that have become threads
+		const parentTsInBatch = new Set<string>();
+		const threadParentTsToUpdate = new Set<string>();
+
+		for (const message of allMessages) {
+			if (this.shouldSkipMessage(message)) continue;
+			if (message.thread_ts && message.thread_ts !== message.ts) {
+				// This is a thread reply — its thread_ts points to a parent
+				// that may have been synced before without thread replies
+				threadParentTsToUpdate.add(message.thread_ts);
+				continue;
+			}
+			parentTsInBatch.add(message.ts);
+		}
+
+		// Parents in the current batch will be processed normally with their
+		// threads, so no need to update them separately
+		for (const ts of parentTsInBatch) {
+			threadParentTsToUpdate.delete(ts);
+		}
+
+		// Process each message (new messages)
 		let latestTs = oldest || '0';
 		for (const message of allMessages) {
 			try {
@@ -180,6 +208,16 @@ export class SyncEngine {
 			if (parseFloat(message.ts) > parseFloat(latestTs)) {
 				latestTs = message.ts;
 			}
+		}
+
+		// Update existing notes whose messages became threads after initial sync
+		if (this.settings.syncThreadReplies && threadParentTsToUpdate.size > 0) {
+			await this.updateExistingThreads(
+				channel,
+				threadParentTsToUpdate,
+				userResolver,
+				result
+			);
 		}
 
 		// Update last sync timestamp
@@ -312,6 +350,85 @@ export class SyncEngine {
 				channel.folderName
 			);
 			if (created) result.messagesCreated++;
+		}
+	}
+
+	/**
+	 * Update existing notes for messages that became threads after initial sync.
+	 *
+	 * When a reply appears in conversations.history, its thread_ts tells us
+	 * which previously-synced parent message now has a thread. We fetch the
+	 * full thread and update the existing note.
+	 */
+	private async updateExistingThreads(
+		channel: ChannelConfig,
+		threadParentTsSet: Set<string>,
+		userResolver: (userId: string) => string,
+		result: SyncResult
+	): Promise<void> {
+		for (const parentTs of threadParentTsSet) {
+			try {
+				const thread = await this.api.getThread(channel.id, parentTs);
+				const parent = thread.parent;
+				const replies = thread.replies;
+
+				if (replies.length === 0) continue;
+
+				// Resolve user IDs for thread participants
+				const threadUserIds = new Set<string>();
+				if (parent.user) threadUserIds.add(parent.user);
+				for (const reply of replies) {
+					if (reply.user) threadUserIds.add(reply.user);
+					// Also collect mentioned user IDs
+					const mentions = reply.text?.match(/<@([A-Z0-9]+)>/g) || [];
+					for (const mention of mentions) {
+						const match = mention.match(/<@([A-Z0-9]+)>/);
+						if (match) threadUserIds.add(match[1]);
+					}
+				}
+				await this.resolveUsers(Array.from(threadUserIds));
+
+				const parentUserName = parent.user
+					? userResolver(parent.user)
+					: 'bot';
+				const markdownText = slackMrkdwnToMarkdown(parent.text || '', userResolver);
+
+				const threadReplies = replies.map((reply) => ({
+					userName: reply.user ? userResolver(reply.user) : 'bot',
+					text: slackMrkdwnToMarkdown(reply.text || '', userResolver),
+					ts: reply.ts,
+				}));
+
+				let updated: boolean;
+				if (this.settings.groupMessagesByDate) {
+					updated = await this.fileManager.updateGroupedNoteThread(
+						parent,
+						channel.name,
+						parentUserName,
+						markdownText,
+						threadReplies,
+						channel.folderName
+					);
+				} else {
+					updated = await this.fileManager.updateIndividualNoteThread(
+						parent,
+						channel.name,
+						parentUserName,
+						markdownText,
+						threadReplies,
+						channel.folderName
+					);
+				}
+
+				if (updated) {
+					result.threadsUpdated++;
+				}
+
+				// Rate limit between thread fetches
+				await sleep(1100);
+			} catch (e) {
+				result.errors.push(`Thread update ${parentTs}: ${(e as Error).message}`);
+			}
 		}
 	}
 

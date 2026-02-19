@@ -131,6 +131,32 @@ export class SlackApiClient {
 		return messages.length > 1 ? messages.slice(1) : [];
 	}
 
+	/**
+	 * Fetch a thread including the parent message and all replies.
+	 */
+	async getThread(channelId: string, threadTs: string): Promise<{ parent: SlackMessage; replies: SlackMessage[] }> {
+		const params: Record<string, string> = {
+			channel: channelId,
+			ts: threadTs,
+			limit: '200',
+		};
+
+		const response = await this.apiCall<SlackMessage[]>(
+			SLACK_ENDPOINTS.CONVERSATIONS_REPLIES,
+			params
+		);
+
+		const messages = response.messages || [];
+		if (messages.length === 0) {
+			throw new Error(`Thread ${threadTs} not found`);
+		}
+
+		return {
+			parent: messages[0],
+			replies: messages.slice(1),
+		};
+	}
+
 	async getUserInfo(userId: string): Promise<SlackUser> {
 		const cached = this.userCache.get(userId);
 		if (cached && Date.now() - cached.fetchedAt < USER_CACHE_TTL) {

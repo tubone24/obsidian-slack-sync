@@ -132,7 +132,8 @@ export class FileManager {
 
 		// Add thread replies if enabled
 		if (threadReplies && threadReplies.length > 0) {
-			content += '\n\n---\n\n### Thread Replies\n\n';
+			const threadTitle = markdownText.split('\n')[0].trim() || 'Thread';
+			content += `\n\n---\n\n### ${threadTitle}\n\n`;
 			for (const reply of threadReplies) {
 				const replyDate = slackTsToDate(reply.ts);
 				content += `**${reply.userName}** (${formatTime(replyDate)}):\n${reply.text}\n\n`;
@@ -237,7 +238,8 @@ export class FileManager {
 
 		// Add thread replies as blockquotes below the parent message
 		if (threadReplies && threadReplies.length > 0) {
-			messageEntry += '\n\n#### Thread\n\n';
+			const threadTitle = markdownText.split('\n')[0].trim() || 'Thread';
+			messageEntry += `\n\n#### ${threadTitle}\n\n`;
 			for (const reply of threadReplies) {
 				const replyDate = slackTsToDate(reply.ts);
 				messageEntry += `> **${reply.userName}** (${formatTime(replyDate)}):\n> ${reply.text.split('\n').join('\n> ')}\n\n`;
@@ -274,6 +276,127 @@ export class FileManager {
 		}
 
 		return filePath;
+	}
+
+	/**
+	 * Update an existing individual note with thread replies.
+	 * Used when a previously-synced message becomes a thread after initial sync.
+	 */
+	async updateIndividualNoteThread(
+		message: SlackMessage,
+		channelName: string,
+		userName: string,
+		markdownText: string,
+		threadReplies: { userName: string; text: string; ts: string }[],
+		channelFolderName?: string
+	): Promise<boolean> {
+		const date = slackTsToDate(message.ts);
+		const folderPath = this.getNoteFolderPath(channelName, date, channelFolderName);
+		const vars = this.getTemplateVars(message.ts, channelName, userName);
+		const fileName = sanitizeFileName(applyTemplate(this.settings.fileNameTemplate, vars));
+		const filePath = normalizePath(`${folderPath}/${fileName}.md`);
+
+		const existingFile = this.vault.getAbstractFileByPath(filePath);
+		if (!existingFile) return false;
+
+		const content = await this.vault.read(existingFile as any);
+		const parsed = this.parseFrontmatter(content);
+		if (!parsed) return false;
+
+		// Build new thread section
+		const threadTitle = markdownText.split('\n')[0].trim() || 'Thread';
+		let threadSection = `\n\n---\n\n### ${threadTitle}\n\n`;
+		for (const reply of threadReplies) {
+			const replyDate = slackTsToDate(reply.ts);
+			threadSection += `**${reply.userName}** (${formatTime(replyDate)}):\n${reply.text}\n\n`;
+		}
+
+		// Replace or append thread section in the body
+		const body = parsed.body;
+		const threadSeparator = '\n\n---\n\n### ';
+		const separatorIndex = body.indexOf(threadSeparator);
+
+		let newBody: string;
+		if (separatorIndex !== -1) {
+			// Replace existing thread section
+			newBody = body.substring(0, separatorIndex) + threadSection;
+		} else {
+			// Append new thread section
+			newBody = body + threadSection;
+		}
+
+		const newContent = `---\n${parsed.frontmatter}\n---\n${newBody}`;
+		if (newContent === content) return false;
+
+		await this.vault.modify(existingFile as any, newContent);
+		return true;
+	}
+
+	/**
+	 * Update an existing grouped note entry with thread replies.
+	 * Used when a previously-synced message becomes a thread after initial sync.
+	 */
+	async updateGroupedNoteThread(
+		message: SlackMessage,
+		channelName: string,
+		userName: string,
+		markdownText: string,
+		threadReplies: { userName: string; text: string; ts: string }[],
+		channelFolderName?: string
+	): Promise<boolean> {
+		const date = slackTsToDate(message.ts);
+		const folderPath = this.getNoteFolderPath(channelName, date, channelFolderName);
+		const vars = this.getTemplateVars(message.ts, channelName, userName);
+		const fileName = sanitizeFileName(
+			applyTemplate(this.settings.groupedFileNameTemplate, vars)
+		);
+		const filePath = normalizePath(`${folderPath}/${fileName}.md`);
+
+		const existingFile = this.vault.getAbstractFileByPath(filePath);
+		if (!existingFile) return false;
+
+		const content = await this.vault.read(existingFile as any);
+
+		const marker = `<!-- ts:${message.ts} -->`;
+		const markerIndex = content.indexOf(marker);
+		if (markerIndex === -1) return false;
+
+		// Find the end of this message's section (next marker or end of file)
+		const afterMarker = markerIndex + marker.length;
+		const nextMarkerIndex = content.indexOf('<!-- ts:', afterMarker);
+		const sectionEnd = nextMarkerIndex !== -1 ? nextMarkerIndex : content.length;
+
+		// Get the current section content (between this marker and next)
+		const sectionContent = content.substring(afterMarker, sectionEnd);
+
+		// Build new thread section
+		const threadTitle = markdownText.split('\n')[0].trim() || 'Thread';
+		let threadPart = `\n\n#### ${threadTitle}\n\n`;
+		for (const reply of threadReplies) {
+			const replyDate = slackTsToDate(reply.ts);
+			threadPart += `> **${reply.userName}** (${formatTime(replyDate)}):\n> ${reply.text.split('\n').join('\n> ')}\n\n`;
+		}
+
+		// Replace or append thread sub-section within this entry
+		const threadSubIndex = sectionContent.indexOf('\n\n#### ');
+		let newSection: string;
+		if (threadSubIndex !== -1) {
+			// Replace existing thread sub-section
+			newSection = marker + sectionContent.substring(0, threadSubIndex) + threadPart;
+		} else {
+			// Append thread sub-section
+			newSection = marker + sectionContent.trimEnd() + threadPart;
+		}
+
+		const newContent = content.substring(0, markerIndex)
+			+ newSection
+			+ (nextMarkerIndex !== -1 ? '\n' : '')
+			+ content.substring(sectionEnd);
+
+		if (newContent.trim() === content.trim()) return false;
+
+		await this.vault.modify(existingFile as any, newContent);
+		return true;
 	}
 
 	/**
